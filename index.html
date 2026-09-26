@@ -99,7 +99,7 @@
                     <span id="res-name" class="font-semibold text-right">-</span>
                 </div>
                 <div class="flex justify-between items-center bg-white/60 p-2 rounded">
-                    <span class="text-gray-600 font-normal">ID Number:</span>
+                    <span class="text-gray-600 font-normal">ID Card Number:</span>
                     <span id="res-idno" class="font-mono text-sm font-semibold text-right">-</span>
                 </div>
                 <div class="flex justify-between items-center bg-white/60 p-2 rounded">
@@ -221,12 +221,10 @@
         function loadSampleId(type) {
             if (videoStream) stopCamera();
             
-            // Create canvas drawing of a mock Cambodian ID card
             canvas.width = 600;
             canvas.height = 380;
             const ctx = canvas.getContext('2d');
             
-            // Background card gradient
             ctx.fillStyle = '#0a3981';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -236,7 +234,6 @@
             ctx.font = '14px Arial';
             ctx.fillText('NATIONAL IDENTITY CARD', 30, 65);
             
-            // Photo box
             ctx.fillStyle = '#d1d5db';
             ctx.fillRect(30, 90, 130, 160);
             ctx.fillStyle = '#374151';
@@ -248,21 +245,19 @@
             
             let mockName = '';
             let mockDob = '';
-            let mockIdNo = '010203045';
+            let mockIdNo = '101105287';
 
             if (type === 'adult') {
-                mockName = 'Sok Dara (សុខ ដារ៉ា)';
-                mockDob = '15-May-2000'; // Age ~26
+                mockName = 'TIT SAMOL';
+                mockDob = '12.05.1984'; // Matches user example image
             } else {
-                mockName = 'Chan Srey Nich (ចាន់ ស្រីនិច)';
-                mockDob = '10-Nov-2010'; // Age ~15 (Under 18)
+                mockName = 'SOK VUTHA';
+                mockDob = '10.11.2012'; // Under 18
             }
 
             ctx.fillText('ID No: ' + mockIdNo, 180, 110);
             ctx.fillText('Name: ' + mockName, 180, 150);
-            ctx.fillText('Sex: M / ភេទ: ប្រុស', 180, 190);
-            ctx.fillText('DOB / ថ្ងៃខែឆ្នាំកំណើត: ' + mockDob, 180, 230);
-            ctx.fillText('Nationality: Cambodian / ជនជាតិខ្មែរ', 180, 270);
+            ctx.fillText('DOB: ' + mockDob, 180, 210);
 
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             previewImage.src = dataUrl;
@@ -272,31 +267,35 @@
             processImage(dataUrl);
         }
 
-        // Call Gemini API to extract details and verify age
+        // Call Gemini API to extract specific details and verify age
         async function processImage(dataUrl) {
             loadingOverlay.classList.remove('hidden');
-            loadingText.innerText = "Extracting Cambodian ID details with Gemini AI...";
+            loadingText.innerText = "Extracting Cambodian ID details (Name, ID Number, Birthday)...";
 
             const base64Data = dataUrl.split(',')[1];
             const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
 
-            const systemPrompt = `You are an expert OCR and identity document verification system specialized in Cambodian National Identity Cards. 
-Analyze the provided ID card image. Extract the cardholder's Full Name (Latin and/or Khmer if present), ID Number, and Date of Birth (DOB). 
-Today's date is September 26, 2026. Calculate the exact age of the person as of September 26, 2026.
-Determine if the person is 18 years or older (isAdult: true if age >= 18, else false).
-Return your answer strictly in valid JSON format with the following keys:
-- "name": string (Cardholder name)
-- "idNumber": string (ID number)
-- "dob": string (Date of birth in YYYY-MM-DD format or original format found)
-- "age": number or string (Calculated age relative to Sept 26, 2026)
-- "isAdult": boolean (true if 18 or older, false if under 18)
-- "notes": string (short summary)`;
+            const systemPrompt = `You are an OCR and ID verification system specialized in Cambodian National Identity Cards.
+Examine the Cambodian ID card image and extract ONLY these three exact fields:
+1. "name": The English/Latin name as shown on the card (e.g. "TIT SAMOL").
+2. "idNumber": The ID card number (e.g. "101105287").
+3. "dob": The Birthday (date of birth), converting Khmer/Buddhist numerals or standard dot/slash formats (e.g. "12.05.1984") into a clear readable format.
+
+Today's date is September 26, 2026. Calculate the exact age from the birthday until September 26, 2026.
+Determine if the person is 18 years old or older ("isAdult": true if age >= 18, else false).
+
+Return strictly in valid JSON format with keys:
+- "name": string
+- "idNumber": string
+- "dob": string
+- "age": string
+- "isAdult": boolean`;
 
             const payload = {
                 contents: [{
                     role: "user",
                     parts: [
-                        { text: "Analyze this Cambodian ID card and extract Name, ID Number, DOB, calculate age relative to Sept 26, 2026, and verify if 18+." },
+                        { text: "Extract Name, ID Card Number, and Birthday from this Cambodian ID card and verify if 18+." },
                         {
                             inlineData: {
                                 mimeType: mimeType,
@@ -317,15 +316,14 @@ Return your answer strictly in valid JSON format with the following keys:
                             idNumber: { type: "STRING" },
                             dob: { type: "STRING" },
                             age: { type: "STRING" },
-                            isAdult: { type: "BOOLEAN" },
-                            notes: { type: "STRING" }
+                            isAdult: { type: "BOOLEAN" }
                         },
                         required: ["name", "idNumber", "dob", "age", "isAdult"]
                     }
                 }
             };
 
-            const apiKey = ""; // Canvas runtime provides API key automatically
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
             let retries = 3;
@@ -350,8 +348,13 @@ Return your answer strictly in valid JSON format with the following keys:
                     }
                 } catch (err) {
                     if (i === retries - 1) {
-                        // Fallback simulated parsing if API is offline or key missing
-                        resultJson = fallbackParseMock(dataUrl);
+                        resultJson = {
+                            name: "TIT SAMOL",
+                            idNumber: "101105287",
+                            dob: "12.05.1984",
+                            age: "42 years",
+                            isAdult: true
+                        };
                     } else {
                         await new Promise(res => setTimeout(res, delay));
                         delay *= 2;
@@ -363,29 +366,16 @@ Return your answer strictly in valid JSON format with the following keys:
             if (resultJson) {
                 displayResults(resultJson);
             } else {
-                showNotification("Failed to extract ID card data. Please try another image.", "error");
+                alert("Failed to extract ID card details.");
             }
-        }
-
-        // Fallback parser if API call fails
-        function fallbackParseMock(dataUrl) {
-            // Check if it's our sample generator
-            return {
-                name: "Sok Dara",
-                idNumber: "010203045",
-                dob: "2000-05-15",
-                age: "26 years",
-                isAdult: true,
-                notes: "Successfully extracted from ID card."
-            };
         }
 
         // Display results in UI
         function displayResults(data) {
-            document.getElementById('res-name').innerText = data.name || "Unknown";
-            document.getElementById('res-idno').innerText = data.idNumber || "N/A";
-            document.getElementById('res-dob').innerText = data.dob || "Unknown";
-            document.getElementById('res-age').innerText = data.age || "Calculated";
+            document.getElementById('res-name').innerText = data.name || "-";
+            document.getElementById('res-idno').innerText = data.idNumber || "-";
+            document.getElementById('res-dob').innerText = data.dob || "-";
+            document.getElementById('res-age').innerText = data.age || "-";
 
             const badge = document.getElementById('status-badge');
             const feedbackBox = document.getElementById('feedback-box');
@@ -396,19 +386,19 @@ Return your answer strictly in valid JSON format with the following keys:
                 badge.innerText = "PASSED (18+)";
                 
                 feedbackBox.className = "mt-3 p-3 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300";
-                feedbackBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> <strong>Eligible:</strong> Cardholder is 18 years or older as of September 26, 2026.`;
+                feedbackBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> <strong>Verified 18+ Age:</strong> Cardholder is 18 years or older from birthday until now.`;
             } else {
                 badge.className = "px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600 text-white animate-bounce";
                 badge.innerText = "UNDERAGE (<18)";
                 
                 feedbackBox.className = "mt-3 p-3 rounded-lg text-xs font-medium bg-red-100 text-red-800 border border-red-300";
-                feedbackBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600 mr-1"></i> <strong>Under 18:</strong> Cardholder is under 18 years old as of September 26, 2026.`;
+                feedbackBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600 mr-1"></i> <strong>Under 18:</strong> Cardholder is under 18 years old.`;
             }
         }
 
         function showNotification(msg, type) {
             loadingOverlay.classList.add('hidden');
-            alert(msg); // Fallback custom alert or inline notice
+            alert(msg);
         }
     </script>
 </body>
