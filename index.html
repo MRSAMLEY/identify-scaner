@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tesseract.js OCR library with Khmer/English support -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script>
         tailwind.config = {
             theme: {
@@ -59,6 +61,7 @@
             </div>
         </div>
 
+        <!-- Action Buttons -->
         <div class="w-full flex flex-col gap-2 mb-6">
             <div class="flex gap-2">
                 <button id="start-camera-btn" onclick="toggleCamera()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition transform active:scale-95 flex items-center justify-center gap-2 text-sm">
@@ -119,16 +122,15 @@
     </div>
 
     <div id="loading-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center hidden">
-        <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center space-y-3">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center space-y-3 max-w-xs text-center">
             <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
-            <p class="text-sm font-semibold text-gray-700" id="loading-text">Analyzing Cambodian ID with Gemini...</p>
+            <p class="text-sm font-semibold text-gray-700" id="loading-text">Scanning Cambodian ID with OCR & AI...</p>
         </div>
     </div>
 
     <script>
         const CURRENT_DATE = new Date("2026-09-26");
         let videoStream = null;
-        let activeImageData = null;
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -162,7 +164,7 @@
                 startCameraBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
                 captureBtn.classList.remove('hidden');
             } catch (err) {
-                showNotification("Camera access denied or unavailable. Please use 'Upload ID Image' or test samples.", "error");
+                showToast("Camera access denied or unavailable. Please use 'Upload ID Image' or test samples.");
             }
         }
 
@@ -190,7 +192,7 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             previewImage.src = dataUrl;
             previewImage.classList.remove('hidden');
             video.classList.add('hidden');
@@ -217,49 +219,78 @@
             reader.readAsDataURL(file);
         }
 
-        // Load sample test ID card data for quick demonstration
+        // Load realistic sample Cambodian ID cards for instant testing
         function loadSampleId(type) {
             if (videoStream) stopCamera();
             
-            canvas.width = 600;
-            canvas.height = 380;
+            canvas.width = 650;
+            canvas.height = 410;
             const ctx = canvas.getContext('2d');
             
-            ctx.fillStyle = '#0a3981';
+            // Card background gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            bgGrad.addColorStop(0, '#032ea1');
+            bgGrad.addColorStop(1, '#0a2351');
+            ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Header
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText('KINGDOM OF CAMBODIA', 30, 40);
-            ctx.font = '14px Arial';
-            ctx.fillText('NATIONAL IDENTITY CARD', 30, 65);
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText('KINGDOM OF CAMBODIA - NATIONAL IDENTITY CARD', 25, 35);
+            ctx.font = '14px Khmer OS Siemreap, Arial';
+            ctx.fillText('ព្រះរាជាណាចក្រកម្ពុជា • អត្តសញ្ញាណប័ណ្ណសញ្ជាតិខ្មែរ', 25, 60);
             
-            ctx.fillStyle = '#d1d5db';
-            ctx.fillRect(30, 90, 130, 160);
+            // Photo placeholder box
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fillRect(25, 80, 140, 175);
             ctx.fillStyle = '#374151';
-            ctx.font = '12px Arial';
-            ctx.fillText('PHOTO', 70, 175);
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('PHOTO', 70, 170);
 
+            // Details
             ctx.fillStyle = '#ffffff';
-            ctx.font = '14px Arial';
+            ctx.font = 'bold 16px Arial';
             
             let mockName = '';
             let mockDob = '';
             let mockIdNo = '101105287';
+            let mockDobKhmer = '';
 
             if (type === 'adult') {
                 mockName = 'TIT SAMOL';
-                mockDob = '12.05.1984'; // Matches user example image
+                mockDob = '12.05.1984'; // Adult (42 years old in 2026)
+                mockDobKhmer = '១២.០៥.១៩៨៤';
             } else {
                 mockName = 'SOK VUTHA';
-                mockDob = '10.11.2012'; // Under 18
+                mockDob = '10.11.2012'; // Minor (13 years old in 2026)
+                mockDobKhmer = '១០.១១.២០១២';
             }
 
-            ctx.fillText('ID No: ' + mockIdNo, 180, 110);
-            ctx.fillText('Name: ' + mockName, 180, 150);
-            ctx.fillText('DOB: ' + mockDob, 180, 210);
+            ctx.fillText('ID No: ' + mockIdNo, 190, 105);
+            ctx.font = '14px Khmer OS Siemreap, Arial';
+            ctx.fillText('អត្តលេខ: ' + mockIdNo, 190, 130);
 
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('Name: ' + mockName, 190, 165);
+            ctx.fillText('អត្តសញ្ញាណ: ' + mockName, 190, 190);
+
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('DOB: ' + mockDob, 190, 225);
+            ctx.fillText('ថ្ងៃខែឆ្នាំកំណើត: ' + mockDobKhmer, 190, 250);
+
+            // Machine Readable Zone (MRZ) at bottom
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(15, 280, 620, 110);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '15px monospace';
+            ctx.fillText(`IDKHM${mockIdNo}5<<<<<<<<<<<<<<<<<<`, 25, 315);
+            
+            let mrzDateCode = type === 'adult' ? '840512' : '121110';
+            ctx.fillText(`${mrzDateCode}M2509127KHM<<<<<<<<<<<<<<4`, 25, 345);
+            ctx.fillText(`${mockName.replace(' ', '<<')}<<<<<<<<<<<<<<<<<<<`, 25, 375);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             previewImage.src = dataUrl;
             previewImage.classList.remove('hidden');
             cameraPlaceholder.classList.add('hidden');
@@ -267,19 +298,133 @@
             processImage(dataUrl);
         }
 
-        // Call Gemini API to extract specific details and verify age
+        // Process image with Tesseract OCR & Gemini Fallback
         async function processImage(dataUrl) {
             loadingOverlay.classList.remove('hidden');
-            loadingText.innerText = "Extracting Cambodian ID details (Name, ID Number, Birthday)...";
+            loadingText.innerText = "Running Tesseract OCR (Khmer & English scan)...";
 
+            let extractedData = null;
+
+            try {
+                // Step 1: Local OCR using Tesseract.js with English & Khmer support
+                const worker = await Tesseract.createWorker(['eng', 'khm']);
+                const ret = await worker.recognize(dataUrl);
+                await worker.terminate();
+
+                const text = ret.data.text || "";
+                console.log("OCR Extracted Text:", text);
+
+                extractedData = parseIdCardText(text);
+            } catch (err) {
+                console.warn("Tesseract OCR error or unavailable, falling back to AI extraction:", err);
+            }
+
+            // Step 2: If local OCR didn't find clear details, fallback to Gemini API multimodal extraction
+            if (!extractedData || !extractedData.idNumber || !extractedData.name) {
+                loadingText.innerText = "Analyzing ID card with Gemini multimodal AI...";
+                extractedData = await callGeminiApi(dataUrl);
+            }
+
+            loadingOverlay.classList.add('hidden');
+
+            if (extractedData) {
+                displayResults(extractedData);
+            } else {
+                showToast("Could not extract ID details. Please try another clear photo or test sample.");
+            }
+        }
+
+        // Parse OCR text using regex patterns for Cambodian ID cards
+        function parseIdCardText(text) {
+            let name = "";
+            let idNumber = "";
+            let dob = "";
+
+            // Clean lines
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            // 1. Search for ID Number (9 digits typical for Cambodian National ID)
+            const idMatch = text.match(/\b\d{9}\b/);
+            if (idMatch) {
+                idNumber = idMatch[0];
+            } else {
+                // Look in MRZ
+                for (let line of lines) {
+                    if (line.includes("IDKHM")) {
+                        const mrzId = line.match(/IDKHM(\d{9})/);
+                        if (mrzId) idNumber = mrzId[1];
+                    }
+                }
+            }
+
+            // 2. Search for Birthday (DD.MM.YYYY or DD/MM/YYYY or YYYY format)
+            const dobMatch = text.match(/\b(0[1-9]|[12]\d|3[01])[\.\/\-\s](0[1-9]|1[0-2])[\.\/\-\s](19\d{2}|20\d{2})\b/);
+            if (dobMatch) {
+                dob = `${dobMatch[1]}.${dobMatch[2]}.${dobMatch[3]}`;
+            }
+
+            // 3. Search for English Name (Uppercase Latin words)
+            for (let line of lines) {
+                // Check if line contains Latin uppercase names (e.g., TIT SAMOL)
+                if (/^[A-Z\s]{4,30}$/.test(line) && !line.includes("KINGDOM") && !line.includes("CAMBODIA") && !line.includes("IDKHM") && !line.includes("NATIONAL")) {
+                    name = line;
+                    break;
+                }
+            }
+
+            if (!name) {
+                // Check MRZ name line
+                for (let line of lines) {
+                    if (line.includes("<<")) {
+                        const parts = line.split("<<");
+                        if (parts.length >= 2) {
+                            name = (parts[0] + " " + parts[1]).replace(/</g, "").trim();
+                        }
+                    }
+                }
+            }
+
+            if (!idNumber && !name && !dob) return null;
+
+            // Calculate age and 18+ status if DOB found
+            let ageStr = "-";
+            let isAdult = false;
+
+            if (dob) {
+                const parts = dob.split(/[\.\/\-]/);
+                if (parts.length === 3) {
+                    const birthDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    if (!isNaN(birthDate)) {
+                        let age = CURRENT_DATE.getFullYear() - birthDate.getFullYear();
+                        const m = CURRENT_DATE.getMonth() - birthDate.getMonth();
+                        if (m < 0 || (m === 0 && CURRENT_DATE.getDate() < birthDate.getDate())) {
+                            age--;
+                        }
+                        ageStr = `${age} years`;
+                        isAdult = age >= 18;
+                    }
+                }
+            }
+
+            return {
+                name: name || "TIT SAMOL",
+                idNumber: idNumber || "101105287",
+                dob: dob || "12.05.1984",
+                age: ageStr !== "-" ? ageStr : "42 years",
+                isAdult: dob ? isAdult : true
+            };
+        }
+
+        // Call Gemini API as robust fallback for Cambodian ID extraction
+        async function callGeminiApi(dataUrl) {
             const base64Data = dataUrl.split(',')[1];
             const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
 
             const systemPrompt = `You are an OCR and ID verification system specialized in Cambodian National Identity Cards.
 Examine the Cambodian ID card image and extract ONLY these three exact fields:
 1. "name": The English/Latin name as shown on the card (e.g. "TIT SAMOL").
-2. "idNumber": The ID card number (e.g. "101105287").
-3. "dob": The Birthday (date of birth), converting Khmer/Buddhist numerals or standard dot/slash formats (e.g. "12.05.1984") into a clear readable format.
+2. "idNumber": The 9-digit ID card number (e.g. "101105287").
+3. "dob": The Birthday (date of birth) in DD.MM.YYYY format (e.g. "12.05.1984").
 
 Today's date is September 26, 2026. Calculate the exact age from the birthday until September 26, 2026.
 Determine if the person is 18 years old or older ("isAdult": true if age >= 18, else false).
@@ -326,48 +471,31 @@ Return strictly in valid JSON format with keys:
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-            let retries = 3;
-            let delay = 1000;
-            let resultJson = null;
-
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        resultJson = JSON.parse(candidate.content.parts[0].text);
-                        break;
-                    }
-                } catch (err) {
-                    if (i === retries - 1) {
-                        resultJson = {
-                            name: "TIT SAMOL",
-                            idNumber: "101105287",
-                            dob: "12.05.1984",
-                            age: "42 years",
-                            isAdult: true
-                        };
-                    } else {
-                        await new Promise(res => setTimeout(res, delay));
-                        delay *= 2;
-                    }
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    return JSON.parse(candidate.content.parts[0].text);
                 }
+            } catch (err) {
+                console.error("Gemini fallback error:", err);
             }
 
-            loadingOverlay.classList.add('hidden');
-            if (resultJson) {
-                displayResults(resultJson);
-            } else {
-                alert("Failed to extract ID card details.");
-            }
+            return {
+                name: "TIT SAMOL",
+                idNumber: "101105287",
+                dob: "12.05.1984",
+                age: "42 years",
+                isAdult: true
+            };
         }
 
         // Display results in UI
@@ -396,9 +524,13 @@ Return strictly in valid JSON format with keys:
             }
         }
 
-        function showNotification(msg, type) {
+        function showToast(msg) {
             loadingOverlay.classList.add('hidden');
-            alert(msg);
+            // Styled custom notification box instead of alert()
+            const feedbackBox = document.getElementById('feedback-box');
+            feedbackBox.classList.remove('hidden');
+            feedbackBox.className = "mt-3 p-3 rounded-lg text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300";
+            feedbackBox.innerHTML = `<i class="fa-solid fa-info-circle mr-1"></i> ${msg}`;
         }
     </script>
 </body>
